@@ -1,0 +1,64 @@
+The original s450.scm is limited by the primitives it has installed. The basic
+list constructor, cons, along with its accessors car and cdr, along with the
+end-of-list checker with null?, are enough to implement simple lists in this
+Scheme interpreter, but that is all that can be done. Error-handling, since
+technically the interpreter is a program, is not convenient - one error and the
+program stops, meaning all built-up frames and bindings are lost. Scheme has
+enough error handling to not quit the Unix scheme command upon an error.
+
+Of the given special forms, only lambda takes three arguments, and only begin
+and cond alter exp or env in any way when passing on arguments. Thus a special
+check for make-procedure, then a cond expression to alter what is passed as the
+new exp to the special form handler function is the most elegant way to handle
+the data-directed xeval. text-of-quotation is changed to accept env (with no
+other changes - it doesn't use the argument), but it could have easily been
+checked for separately like the original xeval, just first before any
+environment variables are applied. Again though, this is the most elegant and
+implementation-hidden solution.
+
+The suggested implemenation of install-special-form was confusing to me at
+first, since lookup-variable-value needs an environment to potentially walk
+up. For this method you need to start from the highest up frame and walk down
+to all frames and check their bindings for any conflicting variable definitions
+for a special form, ending at the global environment (the bottom of the list).
+
+I thought that since essentially inside the interpreter special forms are
+variable names, so an if inside of variable? (since if, lambda, cond etc. are
+symbols) directly into xeval would be the clearest way to fix this
+distinction. However, an error occurred before even getting to variable?,
+because (lookup-action was successful since I had type-of as
+
+(if (pair? exp)
+    (car exp)
+    exp)
+
+Returning exp back meant when giving a special form name, it was treated as an
+application of the special form, an error. Changing the false return to a
+constant garbage (with a value that could never be a variable and cause another
+mix-up down the line, the empty list does this job well) fixes the problem and
+then the variable? sub-branch described earlier works.
+
+For avoiding special form collisions in define and set, simple checks just need
+to be done at the start of each of their respective methods. Using if/begin
+instead of a cond has no negative consequences since set-variable-value! and
+define-variable! do not return any useful values by their nature.
+
+Without adding anything after set-cdr! in locally-make-unbound!, the return
+value of the whole function is the return value of set-cdr!, which is the new
+cdr. While this was useful in testing the inner function (which was an unique
+case of remove-val, since one and only one copy of the corresponding value was
+to be removed, and it needed to be at the right place, thus the old variable
+list was needed to do this correctly), showing the implementation of the
+interpreter with that return value is not acceptable. For now I just returned
+the variable name, regardless if the variable was found or not (it would be
+harder to implement such behavior in make-unbound! anyways). Since it's a
+garbage value this is a minor issue of elegance and doesn't affect
+functionality.
+
+Since the implementation of the interpreter is based around (read)'s conversion
+of literal parenthesized expressions into their list equivalents, the whole
+implementation uses lists. So, (equal? something the-empty-environment) is
+exactly the same as (null? something), etc. However, it's important to stay
+consistent with the built-up structures in case the implementation changes, so
+that only those building blocks underneath need to be changed and the
+interpreter still functions.

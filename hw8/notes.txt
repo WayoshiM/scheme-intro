@@ -1,0 +1,24 @@
+Since the implementation of a register machine includes a program counter
+corresponding to the order of instructions (not including labels) in the
+machine's controller text, expanding the data structures of labels and
+instructions to keep track of their order (where the program counter will be
+when it gets to that label or instruction) is the simplest and clearest way to
+implement breakpoints. It changes a relatively low amount of code additionally;
+besides altering data structures and managing the count while creating the
+instruction order, only a few more dispatch methods (which were kept consistent
+with the rest of the dispatch, always returning a method to call even if there
+were no arguments) and (execute) needed to be updated.
+
+The critical juncture of breakpoints is in (execute), where Scheme's
+implementation makes things trivial. Other programming languages would have
+trouble finding some way to "wait" once a breakpoint was found to continue
+resuming. But since (execute) is tail recursive, it is an iteration by
+appearance but can be paused anytime by simply waiting to recall (execute) -
+that is, restart the iteration from where it was left off. If a breakpoint is
+found, (execute) is simply not tail-recursively called, thus the Scheme code
+returns normally everywhere, but the register machine has the effect of being
+halted. The actual execution of an instruction is now in a separate method,
+(actually-execute); it takes (proceed-machine machine) to invoke this after a
+breakpoint, otherwise the register machine operates as normal, passing between
+the two methods when executing.
+

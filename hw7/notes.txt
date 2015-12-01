@@ -1,0 +1,57 @@
+For delayed arguments, the applicative-order nature of Scheme is overriden. This
+means that the code where the arguments are evaluated needs to be altered, and
+this ends up being in list-of-values (each evaluated argument is bound to a
+formal argument in a frame about to be evaluated). This took some tracking of
+the code and thinking about what each procedure in the application? branch of
+xeval to make clear. Since primitive procedures have no simple way of accessing
+their formal arguments (at least legally), and such Scheme procedures will never
+have delayed, dynamic or reference arguments, list-of-values is essentially
+split up: the primitive one is the same code as before, while the user-defined
+one now needs to have the formal arguments passed in to check those special
+tags. A separate procedure (procedure-basic-parameters) removes these tags for
+the formal frame creation in xapply, guaranteed to be after list-of-values,
+since list-of-values is a parameter of a xapply call, and the interpreter itself
+is Scheme and must be applicative order.
+
+One thing I had trouble with for awhile was something I thought was easy -
+checking for when to force thunks. thunks are opaquely objects that I assumed
+would eventually be passed into xeval, and so another branch in the cond would
+be needed there to force it. However, as explained before, the frame contains
+the formal argument - value binding, including any thunk objects. Therefore
+lookup-variable-value must take care of any non-self-evaluating values like
+thunks and references. Forcing these objects is simply now xevaling the
+expression or referenced symbol.
+
+One difficult troubleshooting problem I had while figuring out the xeval /
+lookup distinction above is printing out an infinite list when trying to see the
+environment. (length) continued to return a finite value, so this was
+unclear. It's actually due to the fact that the environments stored in thunks
+will contain thesame environments again, so the list can never terminate again
+without a separate printing check for such problems. (user-print) in s450.scm
+takes care of this for user-defined-procedure?, so for testing I added the same
+for thunk. It's actually important in cons-stream, the thunk in the cdr cannot
+be printed for the same reasons, in fact the implementation as a thunk should be
+hidden, thus just the expression is printed.
+
+Thunks and references are implemented identically in evaluation, with the
+limitation on references being that the expression is a defined
+symbol. Therefore, define-variable needs no changes.
+
+One thing I was unable to solve was (g t) in the testing for references. (f x x)
+works correctly (returning 5 despite the formal argument equaling the actual
+argument, when this is the case the passed in environment can be skipped over),
+but (g t) returns 2. Further testing showed that no matter what the argument to
+g was, it was x in the-global-environment whose value was always set to 5. In
+fact, set-variable-value! went straight from f to the-global-environment,
+skipping g. I'm not sure if this means something else other than
+set-variable-value! (such as in xapply) is faulty, but in any case references to
+references does not seem to be functional.
+
+call/cc can be used to save points in the program to jump to from anywhere else,
+but only if the code saving the continuation is run once first. Therefore, the
+first run-through of (s450) is a "dummy" run, skipping prompting by equating the
+designated variable for the end continuation with its dummy value, THEN (s450)
+is called again since the continuing variable prompt? starts at #t. Now (s450)
+is ready for the eof-object at any time, including right away.
+
+

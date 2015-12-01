@@ -1,0 +1,5 @@
+(define u 3)
+(define x 10)
+(define t 2)
+(define g (lambda ((reference x)) (f x x) t))
+(define f (lambda ((reference x) (reference y)) (set! x 5) y))

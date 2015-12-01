@@ -1,0 +1,36 @@
+Welcome to UMB Scheme, version 3.2  Copyright (c) 1988,1996 William R Campbell.
+UMB Scheme comes with ABSOLUTELY NO WARRANTY. This is free software and
+you are free to redistribute it under certain conditions.
+See the UMB Scheme Release Notes for details. Type Control-d to exit.
+
+Loading /usr/local/lib/scheme/prelude.scheme...
+
+==> 
+f-recur
+==> 
+f-iter
+==> 
+test-1-11
+==> for n = 0, recur: 0, iter: 0
+for n = 1, recur: 1, iter: 1
+for n = 2, recur: 2, iter: 2
+for n = 3, recur: 4, iter: 4
+for n = 4, recur: 11, iter: 11
+for n = 5, recur: 25, iter: 25
+for n = 6, recur: 59, iter: 59
+for n = 7, recur: 142, iter: 142
+for n = 8, recur: 335, iter: 335
+for n = 9, recur: 796, iter: 796
+for n = 10, recur: 1892, iter: 1892
+for n = 11, recur: 4489, iter: 4489
+for n = 12, recur: 10661, iter: 10661
+for n = 13, recur: 25315, iter: 25315
+for n = 14, recur: 60104, iter: 60104
+for n = 15, recur: 142717, iter: 142717
+for n = 16, recur: 338870, iter: 338870
+for n = 17, recur: 804616, iter: 804616
+for n = 18, recur: 1910507, iter: 1910507
+for n = 19, recur: 4536349, iter: 4536349
+
+()
+==> 

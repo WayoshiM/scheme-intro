@@ -1,0 +1,73 @@
+((env argl temp2 continue)
+ (env proc argl temp1 temp2 val)
+ (proc argl temp1 temp2 val)
+ (
+  (assign proc (op make-compiled-procedure) (label entry1) (reg env))
+  (goto (label after-lambda2))
+ entry1
+  (assign env (op compiled-procedure-env) (reg proc))
+  (assign env (op extend-environment) (const (proc)) (reg argl) (reg env))
+  (assign proc (op lookup-variable-value) (const list) (reg env))
+  (save continue)
+  (save proc)
+  (assign proc (op lookup-variable-value) (const cadr) (reg env))
+  (assign val (op lookup-variable-value) (const proc) (reg env))
+  (assign argl (op list) (reg val))
+  (test (op primitive-procedure?) (reg proc))
+  (branch (label primitive-branch3))
+ compiled-branch4
+  (assign continue (label after-call5))
+  (assign val (op compiled-procedure-entry) (reg proc))
+  (goto (reg val))
+ primitive-branch3
+  (assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+ after-call5
+  (assign argl (op list) (reg val))
+  (assign val (const primitive))
+  (assign argl (op cons) (reg val) (reg argl))
+  (restore proc)
+  (restore continue)
+  (test (op primitive-procedure?) (reg proc))
+  (branch (label primitive-branch6))
+ compiled-branch7
+  (assign val (op compiled-procedure-entry) (reg proc))
+  (goto (reg val))
+ primitive-branch6
+  (assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+  (goto (reg continue))
+ after-call8
+ after-lambda2
+  (save continue)
+  (assign temp1 (const ((3 6) (4 9) (8 22))))
+  (assign temp1 (op reverse) (reg temp1))
+  (assign temp2 (const ()))
+ temp1-loop10
+  (test (op null?) (reg temp1))
+  (branch (label temp1-done9))
+  (assign argl (op car) (reg temp1))
+  (assign argl (op list) (reg argl))
+  (save temp1)
+  (save proc)
+  (test (op primitive-procedure?) (reg proc))
+  (branch (label primitive-branch11))
+ compiled-branch12
+  (assign continue (label proc-return14))
+  (assign val (op compiled-procedure-entry) (reg proc))
+  (goto (reg val))
+ proc-return14
+  (assign temp1 (reg val))
+  (goto (label after-call13))
+ primitive-branch11
+  (assign temp1 (op apply-primitive-procedure) (reg proc) (reg argl))
+ after-call13
+  (assign temp2 (op cons) (reg temp1) (reg temp2))
+  (restore proc)
+  (restore temp1)
+  (assign temp1 (op cdr) (reg temp1))
+  (goto (label temp1-loop10))
+ temp1-done9
+  (assign val (reg temp2))
+  (restore continue)
+  (goto (reg continue))
+ )
+)

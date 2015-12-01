@@ -1,0 +1,54 @@
+NOTES ON CONVERT.SCM.
+
+Since quantities and units are represented by lists, when constructing literal
+lists as parameters when calling convert, the list construction must be escaped
+with a quote for Scheme to take it literally as a list ratehr than a function
+call.
+
+====================
+
+The core procedure convert depends on this relation to actually convert units:
+
+U = (u/v) V
+
+where U and V are two unit-lists and u and v are the multiples for U-normalized
+and V-normalized, representing the same unit-lists as U and V but in base units
+only. Since conversion only works if U-normalized = V-normalized,
+
+U = u U-normalized
+V = v V-normalized
+
+U/u = V/v
+U = uV/v = (u/v) V
+
+=====================
+
+The toughest part of this assignment for me was using functions as return
+values. I built this program from the bottom up by defining a unit and quantity
+as functions, with ways to return their fields (for unit, its base and power,
+for quantity, its number (factor) and unit-list. But when returning the
+unit-list for a quantity, I leave the raw lists alone instead of returning a
+list of unit functions, which is easier to process in some respects but also
+ultimately made it more difficult to be consistent in my implementation, which
+led to most of my errors (e.g. in raise-quantity, I double-parenthesized
+(quantity 'unit-list) thinking I needed to call make-unit on each element in
+the list).
+
+Figuring out how to guarantee unit-lists would be considered equal even if out
+of order also took awhile. I built set-equal? before writing any convert code
+(while setting up make-unit and make-quantity) and it actually didn't end up
+being strictly required (although I use it anyways). It ended up that while
+combining units with like bases by adding their powers, it ended up easiest to
+construct a raw quantity from newly created lists at the end of the
+iteration. Since this list has a guaranteed order, a regular equal? would have
+functinoed the same. The downside is that base units must be explicitly defined
+to search for while iterating through each unit (it is safe to assume every
+unit in the list is a base unit, only fully broken down conversions are
+processed inside normalize). However, in a full implementation all the base
+units should be defined, not just kg, sec and m.
+
+The fact that this units.dat only defined derived units in terms of base units
+simplified the problem. If derived units in terms of derived units was used,
+normalize would have to be recursive, with its current state the
+base case and the condition for recursion being if get-quantity finds a
+key-value pair for the unit.

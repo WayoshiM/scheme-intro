@@ -1,0 +1,22 @@
+((env continue)
+ (env proc argl continue temp1 temp2 val)
+ (proc argl val)
+ (
+  (assign proc (op lookup-variable-value) (const +) (reg env))
+  (assign val (const 5))
+  (assign argl (op list) (reg val))
+  (assign val (const 6))
+  (assign argl (op cons) (reg val) (reg argl))
+  (assign val (const 3))
+  (assign argl (op cons) (reg val) (reg argl))
+  (test (op primitive-procedure?) (reg proc))
+  (branch (label primitive-branch1))
+ compiled-branch2
+  (assign val (op compiled-procedure-entry) (reg proc))
+  (goto (reg val))
+ primitive-branch1
+  (assign val (op apply-primitive-procedure) (reg proc) (reg argl))
+  (goto (reg continue))
+ after-call3
+ )
+)

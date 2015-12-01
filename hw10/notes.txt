@@ -1,0 +1,78 @@
+let->appl has the duty of transforming the syntax
+
+(let ((var1 val1) (var2 val2) ...) exp1 exp2 ...)
+
+where the vals could also be sub-expressions, into
+
+((lambda (var1 var2 ...) exp1 exp2 ...) val1 val2 ...)
+
+Which is a direct procedure call from the lambda. Using map with car and cadr to
+parse out the variables and values greatly simplifies most of this
+transformation. However, there is nothing built into the interpreter or compiler
+to recognize this form (when the first element of the list from read is actually
+a raw lambda itself. There's no (tagged-list? (car exp) 'lambda) or
+anything). To keep things comforming to the usual Scheme, the let is actually
+transformed into two expressions:
+
+(define let-proc (lambda (var1 var2 ...) exp1 exp2 ...))
+(let-proc val1 val2 ...)
+
+Where let-proc is a dummy name for the procedure that's will be called right
+away. We can keep using this same dummy name on all let expressions since once
+it's called, the procedure is out of scope to the rest of the program, outside
+of the let. The only details left are that the symbol 'let-proc must be wrapped
+in a list to be appended to the values to form the application call correctly,
+and that since compile is expecting one expression at a time, these two are
+wrapped in a begin, which works since the return value of definition is useless
+to the overall computation.
+
+compile-apply ends up being nearly identical to compile-application. After all,
+the two syntaxs are
+
+(proc exp1 exp2 ...)
+(apply proc (exp1 exp2 ...))
+
+proc-code is exactly the same except for the selector in syntax.scm. The key
+difference is that the raw expressions are already in a list, neither a map
+compiling each expression nor construct-arglist is needed here. So for
+operand-codes, Simply compiling that list itself right into argl does the
+job. This took me awhile to stumble into; I was very surprised to find out the
+elements of a list can be compiled in order and properly put into a register
+simply with a call to compile. But since lists can be created by quoting, the
+list primitive or multiple cons primitives, the only way to cover all of those
+would be a generic call to compile. I feel like this is one of those subtle
+lines of code that takes quite awhile to get right and to a newcomer would take
+awhile to understand as well, since it doesn't seem like it could be so easy.
+
+compile-map was a lot of fun to write, as it involved long literal instruction
+sequences at the heart of it, instead of generic calls to things like
+preserving. It was much easier to keep things clear in my head without those
+blueprint calls permeating the heart of the code. Setting up those types of
+calls was easier since map has the same syntax as apply, so compile-apply was
+used as a base, with the list of elements to apply proc to going into temp1
+instead and ending it off by assigning the end result into the target and an
+immediate call to compile-linkage. There was probably a smoother way to do this
+(with end-with-linkage), but coding all the steps so that everything relevant
+was visible on one screen helped a lot.
+
+As for the heart of compile-map, the task is fairly simple: walk through temp1
+and slowly cons on the result of proc applied on each element to temp2. temp1 is
+reversed so the cons'ing is natural, it could have been done without reverse as
+a primitive fine by adding a final (op cons) (reg temp2) (const ()) if
+wanted. temp1 is used as the storage of each procedure result to add onto temp2,
+thus it is saved and restored.
+
+Two key points are that even though argl will always be one element here, it
+still needs to be a one-element list for compile-procedure-call to work. Also,
+on user-defined procedures proc changes, and it is up to this code to save &
+restore proc appropriately. This is something I assumed compile-procedure-call
+took care of, and it took some testing to see that only the last element was
+being formed correctly (which the first element of the loop due to reverse), and
+the others had the primitive procedure I wrapped in the user-defined procedure,
+to see what happened. If a function was an alias for a primitive procedure, like
+selector procedures are, there was no issue, but anything more complicated than
+that was an issue - e.g., (lambda (z) (car z)) was fine, but (lambda (z) (list
+'primitive z)) lost the 'primitive. In s450.scm, there is a mapping with (list
+'primitive (cadr proc)), so this was the last key step to making compile-map
+functional enough to make s450.cmp functional.
+

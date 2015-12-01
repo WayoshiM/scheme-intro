@@ -1,0 +1,85 @@
+There are two critical things to save when going to eval-dispatch when
+evaluating predicates in conds: the remaining predicate-action clauses left to
+check in unev, and the current clause alone being checked, in exp. If the
+predicate is true, ev-cond-actions needs the entire clause, to take the actions
+of and to put those in the unev register for ev-sequence. But exp needs to be
+the predicate for eval-dispatch when evaluating the predicate. Therefore, with
+unev taken, exp has two roles and needs to be saved and restored
+accordingly. unev is also saved and restored in case the predicate involves
+operations requiring the unev register. I also decided to be cautious with env
+and save it also - the predicate could involve env-manipulating instructions,
+and the ev-sequence of the appropriate cond clause can not be altered. continue
+is saved as usual, except for ev-cond-actions, when after ev-sequence the cond
+evaluation will be done.
+
+=================================
+
+3. factorial implemented iteratively
+
+n       pushes  depth
+1       64      10
+2       99      10
+3       134     10
+4       169     10
+5       204     10
+6       239     10
+
+depth = 10
+pushes = 35n + 29
+
+Thus the stack is pushed 29 times while setting up the program in the first
+place, then for each iteration the stack is pushed 35 times. The depth being
+constant isn't surprising, since on tail recursion it is essentially iterative,
+and items are popped off the stack accordingly.
+
+=================================
+
+4. factorial implemented recursively
+
+n    pushes    depth
+1    16        8
+2    96        15
+3    131       15
+4    166       15
+5    201       15
+6    236       15
+
+the pattern forms for n >= 2 (when the base case does not immediately apply).
+
+depth = 15
+pushes = 35n + 26
+
+==================================
+
+5. 3 & 4 with a non-tail-recursive ev-sequence
+
+For iterative factorial:
+
+n   pushes    depth
+1   70        17
+2   107       20
+3   144       23
+4   181       26
+5   218       29
+6   255       32
+
+depth = 3n + 14
+pushes = 37n + 33
+
+In addition to linear depth growth, pushes is also more inefficient.
+
+
+For recursive factorial:
+
+n   pushes    depth
+1   18        11
+2   104       25
+3   141       28
+4   178       31
+5   215       34
+6   252       37
+
+Again, the pattern only starts on n >= 2, when the base case is not immediate.
+
+depth = 3n + 19
+pushes = 37n + 30

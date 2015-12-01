@@ -1,0 +1,121 @@
+Below is Exercise 1.11, along with an iterative test procedure. Both functions
+output a function f(n) with n as the input, where f(n) = n if n < 3 and f(n) =
+f(n-1) + 2f(n-2) + 3f(n-3) if n >= 3.
+
+(define (f-recur n)
+  (if (< n 3)
+      n
+      (+ (f-recur (- n 1)) (* 2 (f-recur (- n 2))) (* 3 (f-recur (- n 3))))))
+
+f-recur follows directly from the description of f(n) above, but with non-tail
+recursive calls is very expensive temporally - f(3) to f(n-3) will be calculated
+redundantly 3 times.
+
+(define (f-iter target-n)
+  (define f-n target-n)   ;; if n < 3, have input ready to be returned
+  (define f-n-1 2)
+  (define f-n-2 1)
+  (define f-n-3 0)
+  
+  (define (f-test-and-increment n)
+    (cond ((> n target-n) f-n)
+	  (else	(set! f-n (+ f-n-1 (* 2 f-n-2) (* 3 f-n-3)))
+		(set! f-n-3 f-n-2)    ;; update variables
+		(set! f-n-2 f-n-1)    ;; if another calculation
+		(set! f-n-1 f-n)      ;; is needed
+		(f-test-and-increment (+ 1 n)))))
+  
+  (f-test-and-increment 3))
+
+By taking the initial conditions as f(n) for 0 to 3, and incrementally
+calculating f(n+1) in each call while updating the relevant variables for the
+next call, f-iter successfully only uses tail recursion while only needing
+memory for 4 variables, without any of the redundant calculation of f-recur.
+
+(define (test-1-11 n up-to-n)
+  (cond ((< n up-to-n) (display "for n = ")
+        (display n)
+        (display ", recur: ")
+        (display (f-recur n))
+        (display ", iter: ")
+        (display (f-iter n))
+        (newline)
+        (test-1-11 (+ 1 n) up-to-n))))
+
+(test-1-11 0 20)
+
+This is a quick iteration to test both procedures match up for a reasonable
+number of n, including immediate base cases for n < 3. Results:
+
+test-1-11
+==> for n = 0, recur: 0, iter: 0
+for n = 1, recur: 1, iter: 1
+for n = 2, recur: 2, iter: 2
+for n = 3, recur: 4, iter: 4
+for n = 4, recur: 11, iter: 11
+for n = 5, recur: 25, iter: 25
+for n = 6, recur: 59, iter: 59
+for n = 7, recur: 142, iter: 142
+for n = 8, recur: 335, iter: 335
+for n = 9, recur: 796, iter: 796
+for n = 10, recur: 1892, iter: 1892
+for n = 11, recur: 4489, iter: 4489
+for n = 12, recur: 10661, iter: 10661
+for n = 13, recur: 25315, iter: 25315
+for n = 14, recur: 60104, iter: 60104
+for n = 15, recur: 142717, iter: 142717
+for n = 16, recur: 338870, iter: 338870
+for n = 17, recur: 804616, iter: 804616
+for n = 18, recur: 1910507, iter: 1910507
+for n = 19, recur: 4536349, iter: 4536349
+
+All answers match up to manual f(n) calculations up to n = 9, and both
+procedures agree.
+
+Below is Exercise 1.12, a procedure retrieving an element of Pascal's triangle
+at row n (0-indexed) and element e (0-indexed left-to-right, 0 <= e <= n).
+
+(define (p n e)
+  (define n-1 (- n 1))
+  (if (or (= e 0) (= e n))
+      1
+      (+ (p n-1 (- e 1)) (p n-1 e))))		   
+
+Like f-recur, two non-tail recursive calls is fairly expensive, even with two
+base cases on the triangle's sides. (p 100 50) does not finish in a reasonable
+amount of time. An iterative method would require saving relevant results in
+some type of table, top down, snaking down towards the left/center/right of the
+triangle depending on e.
+
+Below is exercise 1-17, designing a procedure for multiplication to only take
+log(n) time and with only adding, doubling (by using + with the same operand
+twice) and dividing by 2 available. The hint is to make it analogous to
+fast-expt in the book:
+
+(define (fast-mult a b)
+  (define (double x) (+ x x))
+  (define (halve x) (/ x 2))
+
+  (cond ((or (= b 0) (= a 0)) 0)
+	((= b 1) a)
+	((= b -1) (- a))
+	((even? b) (double (fast-mult a (halve b))))
+	(else (+ a (fast-mult a (- b 1))))))
+
+Just like fast-expt, the recursion goes down faster than an iterative method
+(which would be O(n) time) by dividing by 2 if even and subtracting by 1 if odd
+(which leads to a divide by 2 in the next step). This maximizes the quick divide
+by 2s when going from any number b to the base case +/- 1 (any 0s are taken care
+of immediately, avoiding infinite recursion). The only difference between
+fast-mult and fast-expt is adding and doubling instead of multiplying and
+squaring when recursing.
+
+Every b could be replaced with a and vice versa and this procedure would
+function exactly the same, since multiplication is communitative. I loaded this
+procedure into scheme to test many numbers to check communitivity and correct
+sign when introducing negative numbers as arguments. Originally I had both 1 and
+-1 with the same base case, however you must negate a if b is negative to get
+the sign to change. I also had b added with (fast-expt a (- b 1)) instead of a
+on the last line - but a*b = a((b-1) + 1) = a + a(b-1), this was just careless
+thinking at the time. 88*2 = 176 and 88*3 = 179 hinted that I had mixed this up.
+

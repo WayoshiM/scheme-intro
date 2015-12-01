@@ -1,0 +1,186 @@
+Problem 1 (display-n) could have been done with for-each and filter if a
+predicate pred existed for the index (starting at 0) of an element in a stream,
+as
+
+(stream-foreach display-line (filter (lambda (x) (< n (pred x))) stream))
+
+However, such a predicate would be doing many redundant calculations, so
+although this problem can be broken down into these bulk operations, just doing
+it directly is the best way to go.
+
+====
+
+I looked at map's definition in Scheme (by having Scheme evaluate map), then
+looking at sub-procedures #_map1 and #_mapn to understand how the recursion and
+progression of the generalized map works. (map car lists) will construct a list
+of the first elements of the lists since that is how car is applied, then when
+stream-map is called again the cdr of all the lists is passed in with (map cdr
+lists), progressing the list processing.
+
+The null check is on the car of argstreams since, at the end of processing the
+lists, (map cdr argstreams) tries to combine a bunch of empty lists, which map
+takes care of by just returning one empty list, regardless of proc. car of
+argstreams is the first element of the variable-length arguments argstream,
+i.e. '('()) when appending the-empty-stream and finishing stream-map. map will
+not ever return '() and cause an error.
+
+apply takes a procedure and uses a list of elements to evaluate said procedure
+with the list as the procedure's arguments. Thus, (stream-map proc (map
+stream-cdr argstreams))) will not work since each element in the list is taken
+as a separate argument for variable arguments, THEN the list is constructed.
+The new argstreams from that call would be a list of one element containing the
+list of all the desired arguments, which is inadequate. For (apply stream-map
+proc (map stream-cdr argstreams)), There are 3 arguments in this call when
+apply only accepts 2, a list appending proc with the map would need to be made
+which is exactly what the cons in the correct stream-map accomplishes.
+
+apply is convenient for stream-map since map returns a list, exactly what apply
+uses to parameterize a variable number of arguments to a procedure. Explicitly
+saving (map stream-car argstreams) into some variable, say car-list, then doing
+(stream-map proc (car car-list) (cadr car-list) ... ) would be tedious and
+impossible for lists of length greater than 4 (Scheme only defines multiple
+car/cdr procedures up to 4 deep). apply takes care of this dirty work under-
+neath with its list argument.
+
+====
+
+mult-stream's states call-by-call for 87 * .987436917 is the following:
+
+Each line represents either the decision-making of the function or the
+parameters for the next call based on that decision-making, with the output
+stream sstatus, the a of this call, the a-list of this call, the pow calculated
+from this call, and the input stream status.
+
+
+    () | - | () | - | (9 8 7 4 3 6 9 1 7)
+a-list is empty, consume
+    () | 783 | (7 8 3) | 100 | (8 7 4 3 6 9 1 7)
+87 + 83 >= 100, consume
+    () | 8526 | (8 5 2 6) | 1000 | (7 4 3 6 9 1 7)
+87 + 526 < 1000, produce
+    (8) | 526 | (5 2 6) | 100 | (7 4 3 6 9 1 7)
+87 + 26 >= 100, consume
+    (8) | 5869 | (5 8 6 9) | 1000 | (4 3 6 9 1 7)
+87 + 869 < 1000, produce
+    (8 5) | 869 | (8 6 9) | 100 | (4 3 6 9 1 7)
+87 + 69 >= 100, consume
+    (8 5) | 9038 | (9 0 3 8) | 1000 | (3 6 9 1 7)
+87 + 38 < 1000, produce
+    (8 5 9) | 38 | (0 3 8) | 100 | (3 6 9 1 7)
+87 + 38 >= 100, consume (prepended 0, new-a-list must be longer than a-list)
+    (8 5 9) | 641 | (0 6 4 1) | 100 | (6 9 1 7)
+87 + 41 >= 100, consume (prepended 0)
+    (8 5 9) | 6932 | (0 6 9 3 2) | 10000 | (9 1 7)
+87 + 6932 < 10000, produce
+    (8 5 9 0) | 6932 | (6 9 3 2) | 1000 | (9 1 7)
+87 + 932 > 1000, consume
+    (8 5 9 0) | 70103 | (7 0 1 0 3) | 10000 | (1 7)
+87 + 103 < 10000, produce
+    (8 5 9 0 7) | 103 | (0 1 0 3) | 1000 | (1 7)
+87 + 103 < 1000, produce
+    (8 5 9 0 7 0) | 103 | (1 0 3) | 100 | (1 7)
+87 + 3 < 100, produce
+    (8 5 9 0 7 0 1) | 3 | (0 3) | 10 | (1 7)
+87 + 3 >= 10, consume
+    (8 5 9 0 7 0 1) | 117 | (1 1 7) | 100 | (7)
+87 + 17 >= 100, consume
+    (8 5 9 0 7 0 1) | 1779 | (1 7 7 9) | 1000 | ()
+input stream is empty, attach a-list (as stream) to output stream
+    (8 5 9 0 7 0 1 1 7 7 9)
+
+
+
+
+One thing I assumed at first was that at the end a finite input stream, the
+empty stream should be the base case to end the procedure. But actually the
+remaining digits calculating from consuming in a-list are attached as a base
+case instead, as shown above (the procedure must end in a consume, since
+producing does not alter the input stream). Of course the-empty-stream is still
+at the end of a-list and ends the stream (and technically in Scheme makes the
+return value a fully evaluated, finite list, no longer a stream).
+
+
+====
+
+
+The function (2 + (i/(2i+1))), when composed with itself for the summation of i
+= 1 to infinity, approaches pi, where the innermost composition is evaluated at
+the function value at i = 0, = 2. But any value here can work and the overall
+composition still approaches, pi, such as 3:
+
+2+(1/3)3 = 3
+2+(1/3)(2 + (2/5)3) = 3.0666666...
+2+(1/3)(2 + (2/5)(2 + (3/7)3)) = 3.104761905...
+2+(1/3)(2 + (2/5)(2 + (3/7)(2 + (4/9)3))) = 3.123809524...
+2+(1/3)(2 + (2/5)(2 + (3/7)(2 + (4/9)(2 + (5/11)3)))) = 3.133044733...
+
+This converges slightly faster than starting at 2. The contribution of the
+innermost number grows smaller and smaller as more and more fractions (even
+as these tend to 1/2) are applied to the innermost number, so as long as said
+number is finite it is reasonable to expect the same convergence.
+
+
+
+The matrix corresponding to the linear fractional transformation that produces
+f(x) = 1/(x+3) is
+
+|  0  1  |
+|        |
+|  1  3  |
+
+Since for a 2x2 matrix with a = 0, b = 1, c = 1, and d = 3, f(x) =
+(ax + b)/(cx + d) = (0x+1)/(1x+3) = 1/(x+3).
+
+
+
+The algorithm hinges upon the fact that the composition of 2 linear fractional
+transformation is analogous to matrix multiplication, with each matrix
+representing a LFT like the above. Composing two of these literal functions out
+shows this simply:
+
+Let f(x) = (a11x + a12)/(a21x + a22)
+    g(x) = (b11x + b12)/(b21x + b22)
+
+Where the subscripts naturally lead to the corresponding matrices
+
+|  a11  a12  |    |  b11  b12  |
+|            |    |            |
+|  a21  a22  |    |  b21  b22  |
+
+Where the first subscript is the row number, and the second the column number.
+
+f(g(x)) is equal to
+
+(a11 * ((b11x + b12)/(b21x + b22)) + a12)
+/
+(a21 * ((b11x + b12)/(b21x + b22)) + a22)
+
+Multiplying top & bottom by (b21x + b22) gives
+
+((a11 * (b11x + b12)) + (a12 * (b21x + b22)))
+/
+((a21 * (b11x + b12)) + (a22 * (b21x + b22)))
+
+Distributing these multiplications and rearranging like terms gives
+
+((a11*b11 + a12*b21)x + (a11*b12 + a12*b22))
+/
+((a21*b11 + a22*b21)x + (a21*b12 + a22*b22))
+
+Whose corresponding matrix thus is
+
+|    a11*b11 + a12*b21    a11*b12 + a12*b22    |
+|                                              |
+|    a21*b11 + a22*b21    a21*b12 + a22*b22    |
+
+Which is exactly the matrix multiplication of the prior two matrices, rows of
+the lefthand matrix dot producted with columns of the righthand matrix.
+
+====
+
+One thing the document did not specify when explaining (pi) was what a to start
+the procedure on. Since a is a linear fractional transformation, I guessed that
+it had to be the first element of the stream of LFTs, which meant the procedure
+actually starts with the rest of the LFTs, (stream-cdr f-matrix-stream). This
+makes sense since pi is f composed with f composed with f... to infinity, where
+f at k=1 is the starting point, so action is "jumpstarted" by f1(x).
